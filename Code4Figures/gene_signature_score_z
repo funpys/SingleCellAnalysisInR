@@ -1,0 +1,49 @@
+
+
+celltype = "Endothelial cells"
+CNV_mm_seurat3_celltype <- SubsetData(CNV_mm_seurat3_sub, cells = colnames(CNV_mm_seurat3_sub)[CNV_mm_seurat3_sub$cell_annotaion == celltype])
+cnt_norm = as.matrix(CNV_mm_seurat3_celltype@assays$RNA@data)
+mat_z = t(scale(t(cnt_norm)))
+mat_z = mat_z[rowSums(mat_z)>0,]
+mat_z = mat_z[!is.na(rowSums(mat_z)),]
+
+
+mat_z = mat_z[rownames(mat_z) %in% genes[!is.na(genes$NCBI.gene..formerly.Entrezgene..ID), 1], ]
+rownames(mat_z) <- uniquifyFeatureNames(rownames(mat_z), 
+                                               genes$NCBI.gene..formerly.Entrezgene..ID[match(rownames(mat_z),
+                                                                                              genes$Gene.stable.ID, nomatch = 0)])
+
+all_z = data.frame(means=colMeans(mat_z[rownames(mat_z) %in% unlist(geneSets),]))
+dim(all_z)
+library(dplyr)
+all_z_condition = all_z %>% group_by(CNV_mm_seurat3_celltype$condition) %>% summarize(means = mean(means, na.rm = TRUE))
+all_z_condition
+
+for (k in 1:length(geneSets)) {
+  genelist = geneSets[[k]]
+  if (table(rownames(mat_z) %in% genelist)["FALSE"]<(nrow(mat_z)-3)) {
+    exprs <- mat_z[rownames(mat_z) %in% genelist ,]
+    exprs <- as.matrix(exprs)[rowSums(as.matrix(exprs)) > 0,]
+    exprsAVG<-colMeans(exprs)
+    geneCor <- apply(exprs, 1, function(x) cor(x, exprsAVG))
+    exprs<-exprs[geneCor>=0.3,]
+    if (table(geneCor>=0.3)["TRUE"]>3 & class(exprs)[1] == "matrix") {
+    Eexprs = colMeans(exprs)
+    if (k==1) {ex_zz = data.frame(Eexprs)}else{ex_zz = cbind(ex_zz, data.frame(Eexprs))}
+    colnames(ex_zz)[ncol(ex_zz)] = names(geneSets)[k]
+  }}
+}
+ex_zz = t(ex_zz[!is.na(rowSums(ex_zz)),])
+dim(ex_zz)
+
+count_sorted <- data.frame(rowMeans(as.matrix(ex_zz[,CNV_mm_seurat3_celltype$condition=="0d-PB"])))
+for(j in names(table(CNV_mm_seurat3_sub$condition))[2:5]){
+  count_sorted <- cbind(count_sorted, rowMeans(as.matrix(ex_zz[,CNV_mm_seurat3_celltype$condition==j])))
+}
+dim(count_sorted)
+colnames(count_sorted) = names(table(CNV_mm_seurat3_sub$condition))
+count_sorted = count_sorted[!is.na(rowSums(count_sorted)),]
+dim(count_sorted)
+
+count_sorted[count_sorted>0.2] =  0.2
+count_sorted[count_sorted< -0.2] = -0.2
