@@ -7,7 +7,6 @@ CNV_mm_seurat3_celltype <- SubsetData(CNV_mm_seurat3_sub, cells = colnames(CNV_m
 ### count matrix z-scoring
 cnt_norm = as.matrix(CNV_mm_seurat3_celltype@assays$RNA@data)
 mat_z = t(scale(t(cnt_norm)))
-mat_z = mat_z[rowSums(mat_z)>0,]
 mat_z = mat_z[!is.na(rowSums(mat_z)),]
 
 
